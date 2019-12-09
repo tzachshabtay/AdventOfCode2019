@@ -1,10 +1,8 @@
 use crate::utils;
 
-const INPUT: isize = 5;
-
 pub fn run() {
     let lines = utils::lines_from_file("./src/days/day5/input.txt");
-    run_program(lines[0].clone());
+    run_program(&lines[0], vec![5]);
 }
 
 type Program = Vec<isize>;
@@ -43,8 +41,8 @@ trait OpCode {
     fn exec(&mut self, program: &mut Program, params: Vec<Param>);
 }
 
-struct Output{cursor: usize}
-struct Input{}
+struct Output{cursor: usize, output: isize}
+struct Input{input: isize}
 struct Add{}
 struct Multiply{}
 #[derive(Default)]
@@ -67,7 +65,7 @@ impl OpCode for JumpIfTrue {
     fn exec(&mut self, program: &mut Program, params: Vec<Param>) {
         if params[0].get(&program) != 0 {
             let val = params[1].get(&program);
-            println!("\tcursor jumping to {}", val);
+            //println!("\tcursor jumping to {}", val);
             self.override_cursor = Some(val as usize);
         }
     }
@@ -86,7 +84,7 @@ impl OpCode for JumpIfFalse {
     fn exec(&mut self, program: &mut Program, params: Vec<Param>) {
         if params[0].get(&program) == 0 {
             let val = params[1].get(&program);
-            println!("\tcursor jumping to {}", val);
+            //println!("\tcursor jumping to {}", val);
             self.override_cursor = Some(val as usize);
         }
     }
@@ -123,7 +121,8 @@ impl OpCode for Output {
     fn length(&self) -> usize { 1 }
 
     fn exec(&mut self, program: &mut Program, params: Vec<Param>) {
-        println!("At {}: {}", self.cursor, params[0].get(&program));
+        //println!("At {}: {}", self.cursor, params[0].get(&program));
+        self.output = params[0].get(&program);
     }
 }
 
@@ -132,8 +131,8 @@ impl OpCode for Input {
     fn length(&self) -> usize { 1 }
 
     fn exec(&mut self, program: &mut Program, params: Vec<Param>) {
-        println!("\tputting {} in {}", INPUT, params[0].value);
-        program[params[0].value as usize] = INPUT;
+        //println!("\tputting {} in {}", self.input, params[0].value);
+        program[params[0].value as usize] = self.input;
     }
 }
 
@@ -143,7 +142,7 @@ impl OpCode for Add {
 
     fn exec(&mut self, program: &mut Program, params: Vec<Param>) {
         let (op1, op2, location) = (params[0].get(&program), params[1].get(&program), params[2].value);
-        println!("\tputting {} + {} in {}", op1, op2, location);
+        //println!("\tputting {} + {} in {}", op1, op2, location);
         program[location as usize] = op1 + op2;
     }
 }
@@ -154,7 +153,7 @@ impl OpCode for Multiply {
 
     fn exec(&mut self, program: &mut Program, params: Vec<Param>) {
         let (op1, op2, location) = (params[0].get(&program), params[1].get(&program), params[2].value);
-        println!("\tputting {} * {} in {}", op1, op2, location);
+        //println!("\tputting {} * {} in {}", op1, op2, location);
         program[location as usize] = op1 * op2;
     }
 }
@@ -165,29 +164,38 @@ fn get_params(cursor: usize, program: &Program, num: usize) -> Vec<Param> {
         new_param(c, program[cursor + i + 1])).collect()
 }
 
-fn run_instruction<T: OpCode>(mut code: T, cursor: usize, program: &mut Program) -> usize {
-    println!("Running instruction {:?} at {} ({})", code.name(), cursor, program[cursor]);
+fn run_instruction<T: OpCode>(code: &mut T, cursor: usize, program: &mut Program) -> usize {
+    //println!("Running instruction {:?} at {} ({})", code.name(), cursor, program[cursor]);
     let params = get_params(cursor, &program, code.length());
     code.exec(program, params);
     code.move_cursor(cursor)
 }
 
-pub fn run_program(program: String) {
+pub fn run_program(program: &str, inputs: Vec<isize>) -> isize {
     let tokens = program.split(",").map(|c| c.parse::<isize>().unwrap());
     let program: &mut Program = &mut tokens.collect();
     let mut cursor = 0;
+    let mut input = 0;
+    let mut result = 0;
     loop {
         let instruction = format!("{:0>6}", program[cursor].to_string());
         match &instruction[4..=5] {
-            "99" => return,
-            "01" => cursor = run_instruction(Add{}, cursor, program),
-            "02" => cursor = run_instruction(Multiply{}, cursor, program),
-            "03" => cursor = run_instruction(Input{}, cursor, program),
-            "04" => cursor = run_instruction(Output{cursor}, cursor, program),
-            "05" => cursor = run_instruction(JumpIfTrue{..Default::default()}, cursor, program),
-            "06" => cursor = run_instruction(JumpIfFalse{..Default::default()}, cursor, program),
-            "07" => cursor = run_instruction(LessThan{}, cursor, program),
-            "08" => cursor = run_instruction(Equals{}, cursor, program),
+            "99" => return result,
+            "01" => cursor = run_instruction(&mut Add{}, cursor, program),
+            "02" => cursor = run_instruction(&mut Multiply{}, cursor, program),
+            "03" => {
+                cursor = run_instruction(&mut Input{input: inputs[input]}, cursor, program);
+                input += 1;
+            },
+            "04" => {
+                let mut output = Output{cursor, output: 0};
+                cursor = run_instruction(&mut output, cursor, program);
+                result = output.output;
+            },
+            "05" => cursor = run_instruction(&mut JumpIfTrue{..Default::default()}, cursor, program),
+            "06" => cursor = run_instruction(&mut JumpIfFalse{..Default::default()}, cursor, program),
+            "07" => cursor = run_instruction(&mut LessThan{}, cursor, program),
+            "08" => cursor = run_instruction(&mut Equals{}, cursor, program),
             _ => panic!("unknown op {} at {}", program[cursor], cursor),
         }
     }
