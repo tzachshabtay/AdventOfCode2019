@@ -16,7 +16,7 @@ pub fn run() {
         let mut last_output = 0 as isize;
         for phase in phases {
             let inputs = vec![phase, last_output];
-            last_output = part2::run_program(&lines[0], inputs);
+            last_output = part2::run_program(&lines[0], part2::FromListProvider::new(inputs));
         }
         println!("{}", last_output);
         if max_output < last_output {
