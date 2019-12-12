@@ -39,22 +39,28 @@ impl Operator for FromListProvider {
 
 type ProgramCode = Vec<isize>;
 
+#[derive(Debug)]
 enum ParamMode {
     Position,
     Immediate,
+    Relative,
 }
 
 struct Param {
     mode: ParamMode,
     value: isize,
+    relative_base: isize,
 }
 
-fn new_param(mode: char, value: isize) -> Param {
-    match mode {
-        '0' => Param{mode: ParamMode::Position, value: value},
-        '1' => Param{mode: ParamMode::Immediate, value: value},
+fn new_param(mode: char, value: isize, relative_base: isize) -> Param {
+    let p = match mode {
+        '0' => Param{mode: ParamMode::Position, value, relative_base},
+        '1' => Param{mode: ParamMode::Immediate, value, relative_base},
+        '2' => Param{mode: ParamMode::Relative, value, relative_base},
         _ => panic!("Unknown param: {}", mode)
-    }
+    };
+    //println!("Param: {:?}, {}, {}", p.mode, p.value, p.relative_base);
+    p
 }
 
 impl Param {
@@ -62,6 +68,15 @@ impl Param {
         match self.mode {
             ParamMode::Immediate => self.value,
             ParamMode::Position => program[self.value as usize],
+            ParamMode::Relative => program[(self.value as isize + self.relative_base as isize) as usize]
+        }
+    }
+
+    fn set(&self, program: &mut ProgramCode, value: isize) {
+        match self.mode {
+            ParamMode::Position => { program[self.value as usize] = value; },
+            ParamMode::Relative => { program[(self.value as isize + self.relative_base as isize) as usize] = value;},
+            _ => panic!("Did not expect immediate mode for output")
         }
     }
 }
@@ -70,6 +85,7 @@ trait OpCode {
     fn name(&self) -> &'static str;
     fn length(&self) -> usize;
     fn move_cursor(&self, cursor: usize) -> usize { cursor + self.length() + 1 }
+    fn get_relative_base(&self, relative_base: isize) -> isize { relative_base }
     fn exec(&mut self, program: &mut ProgramCode, params: Vec<Param>);
 }
 
@@ -83,6 +99,19 @@ struct JumpIfTrue{override_cursor: Option<usize>}
 struct JumpIfFalse{override_cursor: Option<usize>}
 struct LessThan{}
 struct Equals{}
+#[derive(Default)]
+struct RelativeOffset{offset: isize}
+
+impl OpCode for RelativeOffset {
+    fn name(&self) -> &'static str { "RelativeOffset" }
+    fn length(&self) -> usize { 1 }
+    fn get_relative_base(&self, relative_base: isize) -> isize { relative_base + self.offset }
+
+    fn exec(&mut self, program: &mut ProgramCode, params: Vec<Param>) {
+        self.offset = params[0].get(&program);
+        println!("Set relative offset to {}", self.offset);
+    }
+}
 
 impl OpCode for JumpIfTrue {
     fn name(&self) -> &'static str { "JumpIfTrue" }
@@ -128,9 +157,9 @@ impl OpCode for LessThan {
 
     fn exec(&mut self, program: &mut ProgramCode, params: Vec<Param>) {
         if params[0].get(&program) < params[1].get(&program) {
-            program[params[2].value as usize] = 1;
+            params[2].set(program, 1);
         } else {
-            program[params[2].value as usize] = 0;
+            params[2].set(program, 0);
         }
         //println!("Put {} in {}", program[params[2].value as usize], params[2].value as usize);
     }
@@ -142,9 +171,9 @@ impl OpCode for Equals {
 
     fn exec(&mut self, program: &mut ProgramCode, params: Vec<Param>) {
         if params[0].get(&program) == params[1].get(&program) {
-            program[params[2].value as usize] = 1;
+            params[2].set(program, 1);
         } else {
-            program[params[2].value as usize] = 0;
+            params[2].set(program, 0);
         }
         //println!("Put {} in {}", program[params[2].value as usize], params[2].value as usize);
     }
@@ -155,7 +184,7 @@ impl OpCode for Output {
     fn length(&self) -> usize { 1 }
 
     fn exec(&mut self, program: &mut ProgramCode, params: Vec<Param>) {
-        //println!("At {}: {}", self.cursor, params[0].get(&program));
+        println!("Output: {}", params[0].get(&program));
         self.output = params[0].get(&program);
     }
 }
@@ -165,8 +194,7 @@ impl OpCode for Input {
     fn length(&self) -> usize { 1 }
 
     fn exec(&mut self, program: &mut ProgramCode, params: Vec<Param>) {
-        //println!("\tputting {} in {}", self.input, params[0].value);
-        program[params[0].value as usize] = self.input;
+        params[0].set(program, self.input);
     }
 }
 
@@ -175,9 +203,9 @@ impl OpCode for Add {
     fn length(&self) -> usize { 3 }
 
     fn exec(&mut self, program: &mut ProgramCode, params: Vec<Param>) {
-        let (op1, op2, location) = (params[0].get(&program), params[1].get(&program), params[2].value);
+        let (op1, op2) = (params[0].get(&program), params[1].get(&program));
         //println!("\tputting {} + {} in {}", op1, op2, location);
-        program[location as usize] = op1 + op2;
+        params[2].set(program, op1 + op2);
     }
 }
 
@@ -186,23 +214,10 @@ impl OpCode for Multiply {
     fn length(&self) -> usize { 3 }
 
     fn exec(&mut self, program: &mut ProgramCode, params: Vec<Param>) {
-        let (op1, op2, location) = (params[0].get(&program), params[1].get(&program), params[2].value);
+        let (op1, op2) = (params[0].get(&program), params[1].get(&program));
         //println!("\tputting {} * {} in {}", op1, op2, location);
-        program[location as usize] = op1 * op2;
+        params[2].set(program, op1 * op2);
     }
-}
-
-fn get_params(cursor: usize, program: &ProgramCode, num: usize) -> Vec<Param> {
-    let instruction = format!("{:0>6}", program[cursor].to_string());
-    instruction[(4 - num)..4].chars().rev().enumerate().map(|(i, c)|
-        new_param(c, program[cursor + i + 1])).collect()
-}
-
-fn run_instruction<T: OpCode>(code: &mut T, cursor: usize, program: &mut ProgramCode) -> usize {
-    //println!("Running instruction {:?} at {} ({})", code.name(), cursor, program[cursor]);
-    let params = get_params(cursor, &program, code.length());
-    code.exec(program, params);
-    code.move_cursor(cursor)
 }
 
 #[derive(Debug)]
@@ -211,13 +226,29 @@ pub struct Program {
     pub halted: bool,
     result: isize,
     cursor: usize,
+    relative_base: isize,
 }
 
 impl Program {
     pub fn new(program: &str) -> Program {
         let tokens = program.split(",").map(|c| c.parse::<isize>().unwrap());
-        let program: ProgramCode = tokens.collect();
-        Program{code: program, halted: false, result: 0, cursor: 0}
+        let mut program: ProgramCode = tokens.collect();
+        program.extend(vec![0; 10000]);
+        Program{code: program, halted: false, result: 0, cursor: 0, relative_base: 0}
+    }
+
+    fn get_params(&self, num: usize) -> Vec<Param> {
+        let instruction = format!("{:0>6}", self.code[self.cursor].to_string());
+        instruction[(4 - num)..4].chars().rev().enumerate().map(|(i, c)|
+            new_param(c, self.code[self.cursor + i + 1], self.relative_base)).collect()
+    }
+
+    fn run_instruction<T: OpCode>(&mut self, code: &mut T) -> usize {
+        //println!("Running instruction {:?} at {} ({})", code.name(), self.cursor, self.code[self.cursor]);
+        let params = self.get_params(code.length());
+        code.exec(&mut self.code, params);
+        self.relative_base = code.get_relative_base(self.relative_base);
+        code.move_cursor(self.cursor)
     }
 
     pub fn run<T: Operator>(&mut self, operator: &mut T) -> isize {
@@ -228,19 +259,20 @@ impl Program {
                     self.halted = true;
                     return self.result;
                 },
-                "01" => self.cursor = run_instruction(&mut Add{}, self.cursor, &mut self.code),
-                "02" => self.cursor = run_instruction(&mut Multiply{}, self.cursor, &mut self.code),
-                "03" => self.cursor = run_instruction(&mut Input{input: operator.next()}, self.cursor, &mut self.code),
+                "01" => self.cursor = self.run_instruction(&mut Add{}),
+                "02" => self.cursor = self.run_instruction(&mut Multiply{}),
+                "03" => self.cursor = self.run_instruction(&mut Input{input: operator.next()}),
                 "04" => {
                     let mut output = Output{output: 0};
-                    self.cursor = run_instruction(&mut output, self.cursor, &mut self.code);
+                    self.cursor = self.run_instruction(&mut output);
                     self.result = output.output;
                     return self.result;
                 },
-                "05" => self.cursor = run_instruction(&mut JumpIfTrue{..Default::default()}, self.cursor, &mut self.code),
-                "06" => self.cursor = run_instruction(&mut JumpIfFalse{..Default::default()}, self.cursor, &mut self.code),
-                "07" => self.cursor = run_instruction(&mut LessThan{}, self.cursor, &mut self.code),
-                "08" => self.cursor = run_instruction(&mut Equals{}, self.cursor, &mut self.code),
+                "05" => self.cursor = self.run_instruction(&mut JumpIfTrue{..Default::default()}),
+                "06" => self.cursor = self.run_instruction(&mut JumpIfFalse{..Default::default()}),
+                "07" => self.cursor = self.run_instruction(&mut LessThan{}),
+                "08" => self.cursor = self.run_instruction(&mut Equals{}),
+                "09" => self.cursor = self.run_instruction(&mut RelativeOffset{..Default::default()}),
                 _ => panic!("unknown op {} at {}", self.code[self.cursor], self.cursor),
             }
         }
