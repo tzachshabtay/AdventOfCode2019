@@ -109,7 +109,7 @@ impl OpCode for RelativeOffset {
 
     fn exec(&mut self, program: &mut ProgramCode, params: Vec<Param>) {
         self.offset = params[0].get(&program);
-        println!("Set relative offset to {}", self.offset);
+        //println!("Set relative offset to {}", self.offset);
     }
 }
 
