@@ -5,31 +5,38 @@ extern crate num;
 use num::integer::gcd;
 
 pub fn run() {
-    let lines = utils::lines_from_file("./src/days/day10/input.txt");
+    let lines = utils::lines_from_file("./src/days/day10/sample.txt");
+    find_monitoring_station(lines);
+}
+
+pub fn find_monitoring_station(lines: Vec<String>) -> (usize, usize) {
     let map = lines.clone();
 
-    let mut max_astroids = 0;
+    let (mut max_astroids, mut max_x, mut max_y) = (0, 0, 0);
     for (y, line) in lines.iter().enumerate() {
         for (x, cell) in line.chars().enumerate() {
             if cell == '.' {
                 continue;
             }
-            let num_astroids = get_num_astroids(x as isize, y as isize, &map);
+            let num_astroids = get_visible_astroids(x as isize, y as isize, &map).len();
             if num_astroids > max_astroids {
                 max_astroids = num_astroids;
+                max_x = x;
+                max_y = y;
             }
         }
     }
     println!("Result: {}", max_astroids);
+    (max_x, max_y)
 }
 
-#[derive(PartialEq, Eq, Hash)]
-struct FoundVec {
-    step_x: isize,
-    step_y: isize,
+#[derive(PartialEq, Eq, Hash, Debug)]
+pub struct FoundVec {
+    pub step_x: isize,
+    pub step_y: isize,
 }
 
-fn get_num_astroids(x: isize, y: isize, map: &Vec<String>) -> usize {
+pub fn get_visible_astroids(x: isize, y: isize, map: &Vec<String>) -> HashSet::<FoundVec> {
     let mut found = HashSet::<FoundVec>::new();
     for step_x in 0..=max(x, map[0].len() as isize - x) {
         for step_y in 0..=max(y, map.len() as isize - y) {
@@ -43,7 +50,7 @@ fn get_num_astroids(x: isize, y: isize, map: &Vec<String>) -> usize {
         }
     }
     println!("For {},{}: {}", x, y, found.len());
-    found.len()
+    found
 }
 
 fn check_astroid(x: isize, y: isize, map: &Vec<String>, step_x: isize, step_y: isize, found: &mut HashSet<FoundVec>) {
