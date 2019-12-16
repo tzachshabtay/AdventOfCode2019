@@ -3,10 +3,15 @@ use crate::days::day5::part2;
 use std::collections::HashMap;
 
 pub fn run() {
+    let mut grid = HashMap::<Point, Color>::new();
+    run_program(&mut grid);
+    println!("{}", grid.len());
+}
+
+pub fn run_program(grid: &mut HashMap::<Point, Color>) {
     let lines = utils::lines_from_file("./src/days/day11/input.txt");
     let mut halted = false;
     let mut program = part2::Program::new(&lines[0]);
-    let mut grid = HashMap::<Point, Color>::new();
     let mut robot = Robot::new();
     while !halted {
         let input = get_color_input(&grid, &robot.position);
@@ -25,7 +30,6 @@ pub fn run() {
             }
         }
     }
-    println!("{}", grid.len());
 }
 
 fn get_color_input(grid: &HashMap::<Point, Color>, point: &Point) -> isize {
@@ -43,15 +47,15 @@ enum Direction{
     Down,
 }
 
-enum Color {
+pub enum Color {
     Black,
     White,
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
-struct Point {
-    x: isize,
-    y: isize,
+pub struct Point {
+    pub x: isize,
+    pub y: isize,
 }
 
 impl Point{
