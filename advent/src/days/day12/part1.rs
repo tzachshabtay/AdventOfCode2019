@@ -14,7 +14,7 @@ fn run_simulation(moons: &mut Vec<Moon>, steps: usize) {
     println!("{}", energy);
 }
 
-fn timestep(moons: &mut Vec<Moon>) {
+pub fn timestep(moons: &mut Vec<Moon>) {
     for i in 0..moons.len()-1 {
         for j in i+1..moons.len() {
             {
@@ -34,11 +34,11 @@ fn timestep(moons: &mut Vec<Moon>) {
     }
 }
 
-#[derive(Clone)]
-struct Vec3{
-    x: isize,
-    y: isize,
-    z: isize,
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
+pub struct Vec3{
+    pub x: isize,
+    pub y: isize,
+    pub z: isize,
 }
 
 impl Vec3{
@@ -59,14 +59,14 @@ impl Vec3{
     }
 }
 
-#[derive(Clone)]
-struct Moon{
-    velocity: Vec3,
-    position: Vec3,
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub struct Moon{
+    pub velocity: Vec3,
+    pub position: Vec3,
 }
 
 impl Moon{
-    fn new(line: &str) -> Moon {
+    pub fn new(line: &str) -> Moon {
         let line = &line.replace("<x=", "").replace("y=", "").replace("z=", "").replace(">", "").replace(" ", "");
         let tokens: Vec<&str> = line.split(",").collect();
         println!("{:?}", tokens);
