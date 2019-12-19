@@ -184,7 +184,7 @@ impl OpCode for Output {
     fn length(&self) -> usize { 1 }
 
     fn exec(&mut self, program: &mut ProgramCode, params: Vec<Param>) {
-        println!("Output: {}", params[0].get(&program));
+        //println!("Output: {}", params[0].get(&program));
         self.output = params[0].get(&program);
     }
 }
