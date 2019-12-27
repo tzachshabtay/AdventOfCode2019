@@ -65,7 +65,7 @@ impl Solver {
     }
 }
 
-fn move_next(point: Point, command: isize) -> Point {
+pub fn move_next(point: Point, command: isize) -> Point {
     match command {
         1 => Point{x: point.x, y: point.y - 1},
         2 => Point{x: point.x, y: point.y + 1},
@@ -75,7 +75,7 @@ fn move_next(point: Point, command: isize) -> Point {
     }
 }
 
-fn reverse(command: isize) -> isize {
+pub fn reverse(command: isize) -> isize {
     match command {
         1 => 2,
         2 => 1,
@@ -86,21 +86,21 @@ fn reverse(command: isize) -> isize {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-struct Point {
-    x: isize,
-    y: isize,
+pub struct Point {
+    pub x: isize,
+    pub y: isize,
 }
 
-struct Droid {
+pub struct Droid {
     command: isize,
 }
 
 impl Droid {
-    fn new() -> Droid {
+    pub fn new() -> Droid {
         Droid{command: 1}
     }
 
-    fn set_command(&mut self, command: isize) {
+    pub fn set_command(&mut self, command: isize) {
         self.command = command;
     }
 }
