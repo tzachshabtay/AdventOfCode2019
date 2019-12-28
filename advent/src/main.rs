@@ -1,7 +1,7 @@
 mod days;
 mod utils;
 
-use crate::days::day15::{part1,part2};
+use crate::days::day16::{part1,part2};
 
 fn main() {
     println!("PART 1:");
